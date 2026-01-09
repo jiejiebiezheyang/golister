@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{.Title}}</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
+          Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        margin: 0 12px;
+        color: #222;
+        background: #f8faff;
+      }
+      h2 {
+        color: #3a6ed8;
+        font-weight: 600;
+      }
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 8px;
+        font-size: 15px;
+      }
+      th {
+        text-align: left;
+        padding: 8px 12px;
+        color: #555;
+        border-bottom: 1px solid #bbb;
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+      }
+      th .sort-arrow {
+        font-size: 12px;
+        margin-left: 6px;
+        color: #888;
+      }
+      td {
+        background: white;
+        padding: 10px 12px;
+        vertical-align: middle;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+      }
+      td svg {
+        vertical-align: middle;
+        margin-right: 8px;
+      }
+      a {
+        color: #3a6ed8;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .preview-btn {
+        background: #3a6ed8;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        margin-left: 8px;
+        transition: background 0.2s;
+      }
+      .preview-btn:hover {
+        background: #2a5ec8;
+      }
+      .download-btn {
+        background: #4caf50;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        margin-left: 8px;
+        transition: background 0.2s;
+      }
+      .download-btn:hover {
+        background: #3a9c40;
+      }
+
+      @media (max-width: 640px) {
+        table,
+        thead,
+        tbody,
+        th,
+        td,
+        tr {
+          display: block;
+          width: 100%;
+        }
+        thead {
+          display: none;
+        }
+        tr {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+          padding: 10px 0;
+          border-bottom: 1px solid #ddd;
+          background: white;
+          border-radius: 6px;
+          box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+        }
+        td {
+          padding: 0;
+          background: none;
+          box-shadow: none;
+          border-radius: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        td:first-child {
+          flex: 1 1 auto;
+          display: flex;
+          align-items: center;
+          overflow: hidden;
+        }
+        td:first-child a {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        td svg {
+          flex-shrink: 0;
+          margin-right: 8px;
+          margin-left: 10px;
+        }
+        td:last-child {
+          flex-shrink: 0;
+          width: auto;
+          min-width: 50px;
+          text-align: right;
+          color: #666;
+          font-size: 13px;
+          white-space: nowrap;
+          margin-right: 10px;
+        }
+        .preview-btn,
+        .download-btn {
+          padding: 4px 8px;
+          font-size: 12px;
+        }
+      }
+
+      #controls {
+        margin-bottom: 16px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      #searchBox {
+        padding: 8px 12px;
+        font-size: 15px;
+        border: 1px solid #bbb;
+        border-radius: 6px;
+        width: calc(100% - 24px);
+        max-width: 400px;
+      }
+      .breadcrumb {
+        margin-left: 16px;
+        font-size: 24px;
+        color: #555;
+      }
+      .breadcrumb a {
+        color: #3a6ed8;
+        text-decoration: none;
+      }
+      .breadcrumb a:hover {
+        text-decoration: underline;
+      }
+      .breadcrumb-separator {
+        margin: 0 6px;
+        color: #888;
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.9);
+        animation: fadeIn 0.3s;
+      }
+      .modal-content {
+        margin: auto;
+        display: block;
+        width: 90%;
+        max-width: 1200px;
+        max-height: 90vh;
+        object-fit: contain;
+        animation: zoomIn 0.3s;
+      }
+      .modal-text {
+        margin: auto;
+        display: block;
+        width: 90%;
+        max-width: 1200px;
+        max-height: 90vh;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        overflow: auto;
+        white-space: pre-wrap;
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        animation: zoomIn 0.3s;
+      }
+      .close {
+        position: absolute;
+        top: 15px;
+        right: 35px;
+        color: #f1f1f1;
+        font-size: 40px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: 0.3s;
+      }
+      .close:hover,
+      .close:focus {
+        color: #bbb;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes zoomIn {
+        from {
+          transform: scale(0.8);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      .modal-header {
+        color: white;
+        padding: 10px 20px;
+        font-size: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <h2>{{.Title}}</h2>
+      <div class="breadcrumb" id="breadcrumb">
+        <a href="/">Index</a>
+        <span class="breadcrumb-separator">/</span>
+      </div>
+    </div>
+
+    <div id="controls">
+      <input
+        type="text"
+        id="searchBox"
+        placeholder="搜索文件或目录..."
+        aria-label="搜索文件或目录"
+      />
+    </div>
+
+    <table id="fileTable" aria-live="polite" aria-label="文件列表">
+      <thead>
+        <tr>
+          <th data-key="name">名称<span class="sort-arrow" id="arrow-name">▲</span></th>
+          <th data-key="size">大小<span class="sort-arrow" id="arrow-size"></span></th>
+          <th data-key="modtime">修改时间<span class="sort-arrow" id="arrow-modtime"></span></th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Files}}
+        <tr
+          data-name="{{.Name | html}}"
+          data-size="{{.Size}}"
+          data-isdir="{{.IsDir}}"
+          data-modtime="{{.ModTime}}"
+        >
+          <td>
+            {{.IconSVG}}
+            <a href="{{.Href}}">{{.Name}}</a>
+          </td>
+          <td>{{.Size}}</td>
+          <td>{{.ModTime}}</td>
+          <td>
+            {{if not .IsDir}}
+            <button class="download-btn" onclick="downloadFile('{{.Href}}')">下载</button>
+            {{end}} {{if .CanPreview}}
+            <button class="preview-btn" onclick="previewFile('{{.Href}}', '{{.Type}}')">
+              预览
+            </button>
+            {{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+
+    <div id="previewModal" class="modal">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <div class="modal-header" id="modalHeader"></div>
+      <div id="modalContent"></div>
+    </div>
+
+    <script>
+      ;(() => {
+        const searchBox = document.getElementById('searchBox')
+        const tableBody = document.querySelector('#fileTable tbody')
+        const headers = document.querySelectorAll('#fileTable thead th')
+        const arrowName = document.getElementById('arrow-name')
+        const arrowSize = document.getElementById('arrow-size')
+        const arrowModTime = document.getElementById('arrow-modtime')
+        const breadcrumb = document.getElementById('breadcrumb')
+        const modal = document.getElementById('previewModal')
+        const modalContent = document.getElementById('modalContent')
+        const modalHeader = document.getElementById('modalHeader')
+
+        let sortKey = 'name'
+        let sortAsc = true
+
+        const rows = Array.from(tableBody.querySelectorAll('tr'))
+
+        function parseSize(sizeStr) {
+          if (sizeStr === '-' || !sizeStr) return -1
+          const units = {
+            B: 1,
+            KB: 1024,
+            MB: 1024 * 1024,
+            GB: 1024 * 1024 * 1024,
+            TB: 1024 * 1024 * 1024 * 1024
+          }
+          const m = sizeStr.match(/^([\d.]+)\s*(B|KB|MB|GB|TB)$/i)
+          if (!m) return -1
+          return parseFloat(m[1]) * (units[m[2].toUpperCase()] || 1)
+        }
+
+        function parseModTime(timeStr) {
+          return new Date(timeStr).getTime()
+        }
+
+        function updateBreadcrumb() {
+          const path = window.location.pathname
+          if (path === '/') {
+            breadcrumb.innerHTML = '<a href="/">Index</a>'
+            return
+          }
+
+          const parts = path.split('/').filter(p => p)
+          let html = '<a href="/">Index</a>'
+          let currentPath = ''
+
+          for (let i = 0; i < parts.length; i++) {
+            currentPath += '/' + parts[i]
+            html += '<span class="breadcrumb-separator">/</span>'
+            if (i === parts.length - 1) {
+              html += parts[i]
+            } else {
+              html += `<a href="${currentPath}">${parts[i]}</a>`
+            }
+          }
+
+          breadcrumb.innerHTML = html
+        }
+
+        function sortRows() {
+          rows.sort((a, b) => {
+            const aIsDir = a.dataset.isdir === 'true'
+            const bIsDir = b.dataset.isdir === 'true'
+
+            if (sortKey === 'name') {
+              if (aIsDir && bIsDir) {
+                const cmp = a.dataset.name.localeCompare(b.dataset.name)
+                return sortAsc ? cmp : -cmp
+              }
+              if (aIsDir && !bIsDir) return -1
+              if (!aIsDir && bIsDir) return 1
+
+              const cmp = a.dataset.name.localeCompare(b.dataset.name)
+              return sortAsc ? cmp : -cmp
+            }
+
+            if (sortKey === 'size') {
+              if (aIsDir && bIsDir) {
+                return a.dataset.name.localeCompare(b.dataset.name)
+              }
+              if (aIsDir && !bIsDir) return -1
+              if (!aIsDir && bIsDir) return 1
+
+              const sizeCmp = parseSize(a.dataset.size) - parseSize(b.dataset.size)
+              if (sizeCmp !== 0) {
+                return sortAsc ? sizeCmp : -sizeCmp
+              }
+              const nameCmp = a.dataset.name.localeCompare(b.dataset.name)
+              return sortAsc ? nameCmp : -nameCmp
+            }
+
+            if (sortKey === 'modtime') {
+              if (aIsDir && bIsDir) {
+                const timeCmp = parseModTime(a.dataset.modtime) - parseModTime(b.dataset.modtime)
+                if (timeCmp !== 0) return sortAsc ? timeCmp : -timeCmp
+                return a.dataset.name.localeCompare(b.dataset.name)
+              }
+              if (aIsDir && !bIsDir) return -1
+              if (!aIsDir && bIsDir) return 1
+
+              const timeCmp = parseModTime(a.dataset.modtime) - parseModTime(b.dataset.modtime)
+              if (timeCmp !== 0) return sortAsc ? timeCmp : -timeCmp
+              const nameCmp = a.dataset.name.localeCompare(b.dataset.name)
+              return sortAsc ? nameCmp : -nameCmp
+            }
+
+            return 0
+          })
+        }
+
+        function render() {
+          const filterText = searchBox.value.trim().toLowerCase()
+          sortRows()
+          tableBody.innerHTML = ''
+
+          for (const row of rows) {
+            if (!filterText || row.dataset.name.toLowerCase().includes(filterText)) {
+              tableBody.appendChild(row)
+            }
+          }
+
+          arrowName.textContent = ''
+          arrowSize.textContent = ''
+          arrowModTime.textContent = ''
+          if (sortKey === 'name') arrowName.textContent = sortAsc ? '▲' : '▼'
+          if (sortKey === 'size') arrowSize.textContent = sortAsc ? '▲' : '▼'
+          if (sortKey === 'modtime') arrowModTime.textContent = sortAsc ? '▲' : '▼'
+        }
+
+        headers.forEach(header => {
+          header.addEventListener('click', () => {
+            const key = header.dataset.key
+            if (key === sortKey) {
+              sortAsc = !sortAsc
+            } else {
+              sortKey = key
+              sortAsc = true
+            }
+            render()
+          })
+        })
+
+        searchBox.addEventListener('input', render)
+
+        window.previewFile = function (href, type) {
+          const previewUrl = href + '?preview=1'
+          modal.style.display = 'block'
+          modalHeader.textContent = '文件预览: ' + href.split('/').pop()
+
+          if (type === 'image') {
+            modalContent.innerHTML = `<img class="modal-content" src="${previewUrl}" alt="预览">`
+          } else if (type === 'text') {
+            fetch(previewUrl)
+              .then(response => response.text())
+              .then(text => {
+                modalContent.innerHTML = `<pre class="modal-text">${escapeHtml(text)}</pre>`
+              })
+              .catch(error => {
+                modalContent.innerHTML = `<div class="modal-text">加载失败: ${error.message}</div>`
+              })
+          }
+        }
+
+        window.downloadFile = function (href) {
+          window.location.href = href + '?download=1'
+        }
+
+        window.closeModal = function () {
+          modal.style.display = 'none'
+          modalContent.innerHTML = ''
+        }
+
+        function escapeHtml(text) {
+          const div = document.createElement('div')
+          div.textContent = text
+          return div.innerHTML
+        }
+
+        modal.addEventListener('click', e => {
+          if (e.target === modal) {
+            closeModal()
+          }
+        })
+
+        document.addEventListener('keydown', e => {
+          if (e.key === 'Escape' && modal.style.display === 'block') {
+            closeModal()
+          }
+        })
+
+        updateBreadcrumb()
+        render()
+      })()
+    </script>
+  </body>
+</html>
