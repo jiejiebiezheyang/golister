@@ -1,1 +1,14 @@
+# 编译产物
 *.exe
+*.out
+*.test
+/golister
+/golister-*
+coverage.*
+
+# 本地工具产物
+*.local
+
+# 系统文件
+.DS_Store
+Thumbs.db

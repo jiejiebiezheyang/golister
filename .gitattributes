@@ -1,0 +1,9 @@
+# 统一行尾：源码/文本用 LF，避免跨平台 diff 噪音
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.exe binary

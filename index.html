@@ -1,521 +1,1008 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{.Title}}</title>
+    <meta name="color-scheme" content="light dark" />
+    <title>{{.Title}} — {{.CurrentPath}}</title>
+    <!-- highlight.js 语法高亮：JS 与亮/暗主题均来自 BootCDN（需联网） -->
+    <link
+      rel="stylesheet"
+      id="hl-theme-light"
+      href="https://cdn.bootcdn.net/ajax/libs/highlight.js/11.11.1/styles/github.min.css"
+    />
+    <link
+      rel="stylesheet"
+      id="hl-theme-dark"
+      href="https://cdn.bootcdn.net/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css"
+      disabled
+    />
+    <script>
+      // 首帧前应用主题，避免闪烁；同时同步代码高亮主题样式
+      ;(function () {
+        function applyTheme(t) {
+          document.documentElement.setAttribute('data-theme', t)
+          var dark = t === 'dark'
+          var l = document.getElementById('hl-theme-light')
+          var d = document.getElementById('hl-theme-dark')
+          if (l) l.disabled = dark
+          if (d) d.disabled = !dark
+        }
+        window.__setGolisterTheme = function (t) {
+          applyTheme(t)
+          try {
+            localStorage.setItem('golister-theme', t)
+          } catch (e) {}
+        }
+        try {
+          var t = localStorage.getItem('golister-theme')
+          if (t !== 'dark' && t !== 'light') {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+          }
+          applyTheme(t)
+        } catch (e) {}
+      })()
+    </script>
     <style>
+      :root {
+        --bg: #f6f8fc;
+        --card: #ffffff;
+        --border: #dfe4ec;
+        --text: #1f2933;
+        --muted: #6b7683;
+        --accent: #3a6ed8;
+        --accent-hover: #2a5ec8;
+        --green: #3d9a4e;
+        --header-bg: #ffffff;
+        --shadow: 0 1px 3px rgb(16 24 40 / 0.08);
+        --row-hover: rgb(58 110 216 / 0.07);
+      }
+      [data-theme='dark'] {
+        --bg: #0f1420;
+        --card: #161d2e;
+        --border: #2a3448;
+        --text: #e6ebf4;
+        --muted: #8b97ab;
+        --accent: #6d9bff;
+        --accent-hover: #8db1ff;
+        --green: #5fce74;
+        --header-bg: #101624;
+        --shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+        --row-hover: rgb(109 155 255 / 0.09);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
       body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
-          Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-        margin: 0 12px;
-        color: #222;
-        background: #f8faff;
+        margin: 0;
+        padding: 0;
       }
-      h2 {
-        color: #3a6ed8;
-        font-weight: 600;
-      }
-      table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0 8px;
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC',
+          'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+        background: var(--bg);
+        color: var(--text);
         font-size: 15px;
-      }
-      th {
-        text-align: left;
-        padding: 8px 12px;
-        color: #555;
-        border-bottom: 1px solid #bbb;
-        cursor: pointer;
-        user-select: none;
-        position: relative;
-      }
-      th .sort-arrow {
-        font-size: 12px;
-        margin-left: 6px;
-        color: #888;
-      }
-      td {
-        background: white;
-        padding: 10px 12px;
-        vertical-align: middle;
-        border-radius: 6px;
-        box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
-      }
-      td svg {
-        vertical-align: middle;
-        margin-right: 8px;
+        line-height: 1.5;
       }
       a {
-        color: #3a6ed8;
+        color: var(--accent);
         text-decoration: none;
       }
       a:hover {
         text-decoration: underline;
       }
-      .preview-btn {
-        background: #3a6ed8;
-        color: white;
-        border: none;
-        padding: 6px 12px;
-        border-radius: 4px;
-        cursor: pointer;
+
+      .header {
+        background: var(--header-bg);
+        border-bottom: 1px solid var(--border);
+        padding: 14px 18px;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+      }
+      .header-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0;
+      }
+      .brand .logo {
+        width: 22px;
+        height: 22px;
+        color: var(--accent);
+      }
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 7px 12px;
         font-size: 13px;
-        margin-left: 8px;
-        transition: background 0.2s;
-      }
-      .preview-btn:hover {
-        background: #2a5ec8;
-      }
-      .download-btn {
-        background: #4caf50;
-        color: white;
-        border: none;
-        padding: 6px 12px;
-        border-radius: 4px;
         cursor: pointer;
-        font-size: 13px;
-        margin-left: 8px;
-        transition: background 0.2s;
+        text-decoration: none;
       }
-      .download-btn:hover {
-        background: #3a9c40;
+      .btn:hover {
+        border-color: var(--accent);
+        text-decoration: none;
+      }
+      .btn-primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: var(--accent-hover);
+        color: #fff;
+      }
+      .btn-ghost {
+        background: transparent;
+        border-color: transparent;
+      }
+
+      /* 面包屑 */
+      .crumbs {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 2px;
+        margin-top: 8px;
+        font-size: 13px;
+        color: var(--muted);
+        word-break: break-all;
+      }
+      .crumbs a {
+        color: var(--muted);
+        padding: 2px 4px;
+        border-radius: 4px;
+      }
+      .crumbs a:hover {
+        color: var(--accent);
+        background: var(--border);
+        text-decoration: none;
+      }
+      .crumbs .sep {
+        margin: 0 2px;
+        opacity: 0.6;
+      }
+      .crumbs .current {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+
+      /* 搜索与统计 */
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      .search-form {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1 1 280px;
+        max-width: 460px;
+      }
+      .search-input {
+        flex: 1;
+        padding: 9px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--card);
+        color: var(--text);
+        font-size: 14px;
+        min-width: 0;
+      }
+      .search-input:focus {
+        outline: 2px solid var(--accent);
+        outline-offset: 0;
+      }
+      .stats {
+        font-size: 13px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .clear-filter {
+        font-size: 13px;
+      }
+
+      /* 文件表 */
+      .table-wrap {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      thead th {
+        text-align: left;
+        padding: 10px 14px;
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 12.5px;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+        user-select: none;
+      }
+      thead th a {
+        color: var(--muted);
+        text-decoration: none;
+      }
+      thead th a:hover {
+        color: var(--accent);
+      }
+      thead th .arr {
+        display: inline-block;
+        width: 12px;
+        margin-left: 2px;
+        color: var(--accent);
+      }
+      tbody td {
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      tbody tr:hover td {
+        background: var(--row-hover);
+      }
+      .fname {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      .fname .icon {
+        flex: none;
+        width: 20px;
+        height: 20px;
+      }
+      .icon.i-dir {
+        color: #4a8fd7;
+      }
+      .icon.i-image {
+        color: #4caf50;
+      }
+      .icon.i-text {
+        color: #ff9800;
+      }
+      .icon.i-pdf {
+        color: #e5564e;
+      }
+      .icon.i-archive {
+        color: #9c27b0;
+      }
+      .icon.i-file {
+        color: #8a93a3;
+      }
+      .fname a {
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .fname a:hover {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      td.size,
+      td.mtime,
+      td.kind {
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      td.actions {
+        white-space: nowrap;
+        text-align: right;
+      }
+      .row-actions {
+        display: inline-flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .mini-btn {
+        display: inline-flex;
+        align-items: center;
+        font-size: 12px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        text-decoration: none;
+      }
+      .mini-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .mini-btn.green {
+        color: var(--green);
+        border-color: var(--green);
+      }
+      .up-row td {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* 分页 */
+      .pager {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 12px 4px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .pager-btns {
+        display: flex;
+        gap: 6px;
+      }
+      .empty {
+        padding: 48px 16px;
+        text-align: center;
+        color: var(--muted);
+      }
+      .empty .big {
+        font-size: 40px;
+        opacity: 0.5;
+      }
+
+      /* 预览弹层（图片灯箱 + 文本） */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgb(0 0 0 / 0.85);
+      }
+      .overlay.open {
+        display: flex;
+      }
+      .lightbox {
+        width: 100%;
+        height: 100%;
+        position: relative;
+      }
+      .lb-stage {
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 72px;
+      }
+      #lb-img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        cursor: zoom-in;
+        user-select: none;
+      }
+      #lb-img.zoomed {
+        cursor: grab;
+        transform-origin: 0 0;
+      }
+      .lb-top,
+      .lb-bottom {
+        position: absolute;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 12px 16px;
+        color: #fff;
+        font-size: 14px;
+        background: linear-gradient(transparent, rgb(0 0 0 / 0.5));
+      }
+      .lb-top {
+        top: 0;
+        background: linear-gradient(rgb(0 0 0 / 0.5), transparent);
+      }
+      .lb-bottom {
+        bottom: 0;
+      }
+      .lb-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .icon-btn {
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: 22px;
+        cursor: pointer;
+        padding: 4px 10px;
+        border-radius: 8px;
+        line-height: 1;
+      }
+      .icon-btn:hover {
+        background: rgb(255 255 255 / 0.15);
+      }
+      .lb-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 2;
+      }
+      .lb-nav.prev {
+        left: 8px;
+      }
+      .lb-nav.next {
+        right: 8px;
+      }
+
+      .textmodal {
+        width: min(1000px, 94vw);
+        max-height: 92vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--card);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .tm-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        gap: 10px;
+      }
+      .tm-head .title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #tmWrap {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      #tmContent {
+        flex: 1 1 auto;
+        min-height: 0;
+        margin: 0;
+        padding: 16px;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 13px;
+        color: var(--text);
+      }
+      /* highlight.js 输出在 #tmContent 内：保持滚动与换行由 pre 容器负责 */
+      #tmContent code.hljs {
+        display: block;
+        background: transparent;
+        padding: 0;
+        white-space: inherit;
+        word-break: inherit;
+        font: inherit;
+      }
+      .trunc-note {
+        color: #e6a23c;
+        padding: 8px 16px;
+        border-top: 1px solid var(--border);
+        font-size: 13px;
+      }
+      .loading {
+        padding: 40px;
+        color: var(--muted);
+        text-align: center;
       }
 
       @media (max-width: 640px) {
-        table,
-        thead,
-        tbody,
-        th,
-        td,
-        tr {
-          display: block;
-          width: 100%;
-        }
-        thead {
+        .hide-sm {
           display: none;
         }
-        tr {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-          padding: 10px 0;
-          border-bottom: 1px solid #ddd;
-          background: white;
-          border-radius: 6px;
-          box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+        .container {
+          padding: 8px;
         }
-        td {
-          padding: 0;
-          background: none;
-          box-shadow: none;
-          border-radius: 0;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+        .lb-stage {
+          padding: 48px 12px 64px;
         }
-        td:first-child {
-          flex: 1 1 auto;
-          display: flex;
-          align-items: center;
-          overflow: hidden;
+        .header {
+          padding: 10px 12px;
         }
-        td:first-child a {
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+        .brand {
+          font-size: 16px;
         }
-        td svg {
-          flex-shrink: 0;
-          margin-right: 8px;
-          margin-left: 10px;
-        }
-        td:last-child {
-          flex-shrink: 0;
-          width: auto;
-          min-width: 50px;
-          text-align: right;
-          color: #666;
-          font-size: 13px;
-          white-space: nowrap;
-          margin-right: 10px;
-        }
-        .preview-btn,
-        .download-btn {
-          padding: 4px 8px;
-          font-size: 12px;
-        }
-      }
-
-      #controls {
-        margin-bottom: 16px;
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      #searchBox {
-        padding: 8px 12px;
-        font-size: 15px;
-        border: 1px solid #bbb;
-        border-radius: 6px;
-        width: calc(100% - 24px);
-        max-width: 400px;
-      }
-      .breadcrumb {
-        margin-left: 16px;
-        font-size: 24px;
-        color: #555;
-      }
-      .breadcrumb a {
-        color: #3a6ed8;
-        text-decoration: none;
-      }
-      .breadcrumb a:hover {
-        text-decoration: underline;
-      }
-      .breadcrumb-separator {
-        margin: 0 6px;
-        color: #888;
-      }
-      .top {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-
-      .modal {
-        display: none;
-        position: fixed;
-        z-index: 1000;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.9);
-        animation: fadeIn 0.3s;
-      }
-      .modal-content {
-        margin: auto;
-        display: block;
-        width: 90%;
-        max-width: 1200px;
-        max-height: 90vh;
-        object-fit: contain;
-        animation: zoomIn 0.3s;
-      }
-      .modal-text {
-        margin: auto;
-        display: block;
-        width: 90%;
-        max-width: 1200px;
-        max-height: 90vh;
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        overflow: auto;
-        white-space: pre-wrap;
-        font-family: 'Courier New', monospace;
-        font-size: 14px;
-        animation: zoomIn 0.3s;
-      }
-      .close {
-        position: absolute;
-        top: 15px;
-        right: 35px;
-        color: #f1f1f1;
-        font-size: 40px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: 0.3s;
-      }
-      .close:hover,
-      .close:focus {
-        color: #bbb;
-        text-decoration: none;
-        cursor: pointer;
-      }
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
-      }
-      @keyframes zoomIn {
-        from {
-          transform: scale(0.8);
-          opacity: 0;
-        }
-        to {
-          transform: scale(1);
-          opacity: 1;
-        }
-      }
-      .modal-header {
-        color: white;
-        padding: 10px 20px;
-        font-size: 18px;
       }
     </style>
   </head>
   <body>
-    <div class="top">
-      <h2>{{.Title}}</h2>
-      <div class="breadcrumb" id="breadcrumb">
-        <a href="/">Index</a>
-        <span class="breadcrumb-separator">/</span>
+    <header class="header">
+      <div class="header-top">
+        <h1 class="brand">
+          <svg class="logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path
+              d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+            />
+          </svg>
+          {{.Title}}
+        </h1>
+        <div class="header-actions">
+          <a class="btn" href="{{.ZipHref}}" title="将当前目录打包为 ZIP 下载">打包 ZIP</a>
+          <button class="btn btn-ghost" id="themeToggle" type="button" aria-label="切换主题">
+            <span id="themeIcon">🌙</span>
+          </button>
+        </div>
+      </div>
+      <nav class="crumbs" aria-label="面包屑">
+        {{range .Crumbs}}
+        {{if .Last}}
+        <span class="current">{{.Label}}</span>
+        {{else}}
+        <a href="{{.URL}}">{{.Label}}</a>
+        <span class="sep">›</span>
+        {{end}}
+        {{end}}
+      </nav>
+    </header>
+
+    <main class="container">
+      <div class="toolbar">
+        <form class="search-form" method="get" action="{{.SearchAction}}" id="searchForm" role="search">
+          <input type="hidden" name="sort" value="{{.Sort}}" />
+          <input type="hidden" name="order" value="{{.Order}}" />
+          <input type="hidden" name="page" value="{{.Page.Page}}" />
+          <input
+            class="search-input"
+            type="search"
+            name="q"
+            value="{{.Q}}"
+            placeholder="搜索文件名（服务端过滤）…"
+            aria-label="搜索文件名"
+            autocomplete="off"
+          />
+        </form>
+        <div class="stats">
+          <span>{{.TotalLabel}}</span>
+          {{if .HasQuery}}
+          <a class="clear-filter" href="{{.SearchAction}}">清除筛选</a>
+          {{end}}
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="fileTable">
+          <thead>
+            <tr>
+              <th style="width: 46%">
+                <a href="{{index .SortURLs "name"}}">名称</a>
+                {{if eq .Sort "name"}}<span class="arr">{{if eq .Order "asc"}}▲{{else}}▼{{end}}</span>{{end}}
+              </th>
+              <th class="hide-sm">
+                <a href="{{index .SortURLs "mtime"}}">修改时间</a>
+                {{if eq .Sort "mtime"}}<span class="arr">{{if eq .Order "asc"}}▲{{else}}▼{{end}}</span>{{end}}
+              </th>
+              <th style="width: 90px">
+                <a href="{{index .SortURLs "size"}}">大小</a>
+                {{if eq .Sort "size"}}<span class="arr">{{if eq .Order "asc"}}▲{{else}}▼{{end}}</span>{{end}}
+              </th>
+              <th style="width: 170px">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{if .ShowParent}}
+            <tr class="up-row" data-kind="parent">
+              <td>
+                <span class="fname">
+                  <svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+                  </svg>
+                  <a href="{{.ParentHref}}">..</a>
+                </span>
+              </td>
+              <td class="mtime hide-sm">-</td>
+              <td class="size">-</td>
+              <td class="actions"></td>
+            </tr>
+            {{end}}
+            {{range .Files}}
+            <tr data-kind="{{.Kind}}" data-name="{{.Name}}">
+              <td>
+                <span class="fname">
+                  <!-- 按分类渲染图标，仅模板内含 SVG，Go 不输出 HTML -->
+                  <svg class="icon i-{{.Kind}}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    {{if eq .Kind "dir"}}
+                    <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+                    {{else if eq .Kind "image"}}
+                    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+                    {{else if eq .Kind "text"}}
+                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                    {{else if eq .Kind "pdf"}}
+                    <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z" />
+                    {{else if eq .Kind "archive"}}
+                    <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 10H6v-2h8v2zm4-4H6v-2h12v2z" />
+                    {{else}}
+                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" />
+                    {{end}}
+                  </svg>
+                  {{if .IsDir}}
+                  <a href="{{.Href}}" title="打开目录">{{.Name}}</a>
+                  {{else}}
+                  <a href="{{.Href}}" title="下载 {{.Name}}">{{.Name}}</a>
+                  {{end}}
+                </span>
+              </td>
+              <td class="mtime hide-sm">{{.ModTime}}</td>
+              <td class="size">{{.Size}}</td>
+              <td class="actions">
+                <span class="row-actions">
+                  {{if .IsDir}}
+                  <a class="mini-btn" href="{{.ZipHref}}" title="打包此目录为 ZIP 下载">ZIP</a>
+                  {{else}}
+                  {{if .CanPreview}}
+                  <button
+                    class="mini-btn js-preview"
+                    type="button"
+                    data-kind="{{.Kind}}"
+                    data-name="{{.Name}}"
+                    data-href="{{.PreviewHref}}"
+                  >
+                    {{if eq .Kind "image"}}查看{{else}}预览{{end}}
+                  </button>
+                  {{end}}
+                  <a class="mini-btn green" href="{{.Href}}" title="下载 {{.Name}}">下载</a>
+                  {{end}}
+                </span>
+              </td>
+            </tr>
+            {{else}}
+            <tr>
+              <td colspan="4">
+                <div class="empty">
+                  <div class="big">🗂</div>
+                  {{if .Q}}没有匹配 “{{.Q}}” 的文件{{else}}此目录为空{{end}}
+                </div>
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+
+        {{if gt .Page.PageCount 1}}
+        <div class="pager">
+          <span>第 {{.Page.Page}} / {{.Page.PageCount}} 页 · 每页 {{.Page.PerPage}} 项</span>
+          <span class="pager-btns">
+            {{if .Page.HasPrev}}
+            <a class="mini-btn" href="{{.Page.PrevURL}}">← 上一页</a>
+            {{else}}
+            <span class="mini-btn" aria-disabled="true" style="opacity: 0.4">← 上一页</span>
+            {{end}}
+            {{if .Page.HasNext}}
+            <a class="mini-btn" href="{{.Page.NextURL}}">下一页 →</a>
+            {{else}}
+            <span class="mini-btn" aria-disabled="true" style="opacity: 0.4">下一页 →</span>
+            {{end}}
+          </span>
+        </div>
+        {{end}}
+      </div>
+    </main>
+
+    <!-- 图片灯箱 -->
+    <div class="overlay" id="lightbox" role="dialog" aria-modal="true" aria-label="图片预览">
+      <div class="lightbox">
+        <div class="lb-top">
+          <span class="lb-name" id="lbName"></span>
+          <button class="icon-btn" id="lbClose" type="button" aria-label="关闭">✕</button>
+        </div>
+        <button class="icon-btn lb-nav prev" id="lbPrev" type="button" aria-label="上一张">‹</button>
+        <button class="icon-btn lb-nav next" id="lbNext" type="button" aria-label="下一张">›</button>
+        <div class="lb-stage">
+          <img id="lbImg" alt="预览图片" draggable="false" />
+        </div>
+        <div class="lb-bottom">
+          <button class="icon-btn" id="lbZoomOut" type="button" aria-label="缩小">−</button>
+          <button class="icon-btn" id="lbZoomIn" type="button" aria-label="放大">＋</button>
+          <button class="icon-btn" id="lbFit" type="button" aria-label="适应窗口">适应</button>
+          <span class="lb-name" id="lbPos"></span>
+        </div>
       </div>
     </div>
 
-    <div id="controls">
-      <input
-        type="text"
-        id="searchBox"
-        placeholder="搜索文件或目录..."
-        aria-label="搜索文件或目录"
-      />
+    <!-- 文本预览弹层 -->
+    <div class="overlay" id="textModal" role="dialog" aria-modal="true" aria-label="文本预览">
+      <div class="textmodal">
+        <div class="tm-head">
+          <span class="title" id="tmTitle"></span>
+          <button class="icon-btn" id="tmClose" type="button" aria-label="关闭" style="color: var(--muted)">✕</button>
+        </div>
+        <div id="tmWrap">
+          <pre id="tmContent"><code class="hljs" id="tmCode"></code></pre>
+        </div>
+        <div class="trunc-note" id="tmNote" hidden>⚠ 文件过大，预览已截断，请下载查看完整内容。</div>
+      </div>
     </div>
 
-    <table id="fileTable" aria-live="polite" aria-label="文件列表">
-      <thead>
-        <tr>
-          <th data-key="name">名称<span class="sort-arrow" id="arrow-name">▲</span></th>
-          <th data-key="size">大小<span class="sort-arrow" id="arrow-size"></span></th>
-          <th data-key="modtime">修改时间<span class="sort-arrow" id="arrow-modtime"></span></th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{range .Files}}
-        <tr
-          data-name="{{.Name | html}}"
-          data-size="{{.Size}}"
-          data-isdir="{{.IsDir}}"
-          data-modtime="{{.ModTime}}"
-        >
-          <td>
-            {{.IconSVG}}
-            <a href="{{.Href}}">{{.Name}}</a>
-          </td>
-          <td>{{.Size}}</td>
-          <td>{{.ModTime}}</td>
-          <td>
-            {{if not .IsDir}}
-            <button class="download-btn" onclick="downloadFile('{{.Href}}')">下载</button>
-            {{end}} {{if .CanPreview}}
-            <button class="preview-btn" onclick="previewFile('{{.Href}}', '{{.Type}}')">
-              预览
-            </button>
-            {{end}}
-          </td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-
-    <div id="previewModal" class="modal">
-      <span class="close" onclick="closeModal()">&times;</span>
-      <div class="modal-header" id="modalHeader"></div>
-      <div id="modalContent"></div>
-    </div>
-
+    <!-- highlight.js（BootCDN，需联网；defer 不阻塞渲染，加载失败时预览回退纯文本） -->
+    <script
+      defer
+      src="https://cdn.bootcdn.net/ajax/libs/highlight.js/11.11.1/highlight.min.js"
+    ></script>
     <script>
-      ;(() => {
-        const searchBox = document.getElementById('searchBox')
-        const tableBody = document.querySelector('#fileTable tbody')
-        const headers = document.querySelectorAll('#fileTable thead th')
-        const arrowName = document.getElementById('arrow-name')
-        const arrowSize = document.getElementById('arrow-size')
-        const arrowModTime = document.getElementById('arrow-modtime')
-        const breadcrumb = document.getElementById('breadcrumb')
-        const modal = document.getElementById('previewModal')
-        const modalContent = document.getElementById('modalContent')
-        const modalHeader = document.getElementById('modalHeader')
-
-        let sortKey = 'name'
-        let sortAsc = true
-
-        const rows = Array.from(tableBody.querySelectorAll('tr'))
-
-        function parseSize(sizeStr) {
-          if (sizeStr === '-' || !sizeStr) return -1
-          const units = {
-            B: 1,
-            KB: 1024,
-            MB: 1024 * 1024,
-            GB: 1024 * 1024 * 1024,
-            TB: 1024 * 1024 * 1024 * 1024
-          }
-          const m = sizeStr.match(/^([\d.]+)\s*(B|KB|MB|GB|TB)$/i)
-          if (!m) return -1
-          return parseFloat(m[1]) * (units[m[2].toUpperCase()] || 1)
+      ;(function () {
+        'use strict'
+        var $ = function (sel) {
+          return document.querySelector(sel)
         }
 
-        function parseModTime(timeStr) {
-          return new Date(timeStr).getTime()
+        /* ---------- 主题 ---------- */
+        var themeIcon = $('#themeIcon')
+        function syncThemeIcon() {
+          themeIcon.textContent =
+            document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙'
         }
+        syncThemeIcon()
+        $('#themeToggle').addEventListener('click', function () {
+          var cur = document.documentElement.getAttribute('data-theme')
+          var next = cur === 'dark' ? 'light' : 'dark'
+          if (window.__setGolisterTheme) window.__setGolisterTheme(next)
+          syncThemeIcon()
+        })
 
-        function updateBreadcrumb() {
-          const path = window.location.pathname
-          if (path === '/') {
-            breadcrumb.innerHTML = '<a href="/">Index</a>'
-            return
-          }
+        /* ---------- 搜索：防抖自动提交，重置到第一页 ---------- */
+        var searchForm = $('#searchForm')
+        var searchInput = $('.search-input')
+        var timer = null
+        searchForm.addEventListener('submit', function () {
+          searchForm.querySelector('input[name="page"]').value = '1'
+        })
+        searchInput.addEventListener('input', function () {
+          clearTimeout(timer)
+          timer = setTimeout(function () {
+            searchForm.querySelector('input[name="page"]').value = '1'
+            searchForm.submit()
+          }, 350)
+        })
 
-          const parts = path.split('/').filter(p => p)
-          let html = '<a href="/">Index</a>'
-          let currentPath = ''
+        /* ---------- 图片灯箱 ---------- */
+        var lightbox = $('#lightbox')
+        var lbImg = $('#lbImg')
+        var lbName = $('#lbName')
+        var lbPos = $('#lbPos')
+        var images = [] // 当前页所有可预览图片 {href, name}
+        var cur = -1
+        var scale = 1
 
-          for (let i = 0; i < parts.length; i++) {
-            currentPath += '/' + parts[i]
-            html += '<span class="breadcrumb-separator">/</span>'
-            if (i === parts.length - 1) {
-              html += parts[i]
-            } else {
-              html += `<a href="${currentPath}">${parts[i]}</a>`
-            }
-          }
-
-          breadcrumb.innerHTML = html
-        }
-
-        function sortRows() {
-          rows.sort((a, b) => {
-            const aIsDir = a.dataset.isdir === 'true'
-            const bIsDir = b.dataset.isdir === 'true'
-
-            if (sortKey === 'name') {
-              if (aIsDir && bIsDir) {
-                const cmp = a.dataset.name.localeCompare(b.dataset.name)
-                return sortAsc ? cmp : -cmp
-              }
-              if (aIsDir && !bIsDir) return -1
-              if (!aIsDir && bIsDir) return 1
-
-              const cmp = a.dataset.name.localeCompare(b.dataset.name)
-              return sortAsc ? cmp : -cmp
-            }
-
-            if (sortKey === 'size') {
-              if (aIsDir && bIsDir) {
-                return a.dataset.name.localeCompare(b.dataset.name)
-              }
-              if (aIsDir && !bIsDir) return -1
-              if (!aIsDir && bIsDir) return 1
-
-              const sizeCmp = parseSize(a.dataset.size) - parseSize(b.dataset.size)
-              if (sizeCmp !== 0) {
-                return sortAsc ? sizeCmp : -sizeCmp
-              }
-              const nameCmp = a.dataset.name.localeCompare(b.dataset.name)
-              return sortAsc ? nameCmp : -nameCmp
-            }
-
-            if (sortKey === 'modtime') {
-              if (aIsDir && bIsDir) {
-                const timeCmp = parseModTime(a.dataset.modtime) - parseModTime(b.dataset.modtime)
-                if (timeCmp !== 0) return sortAsc ? timeCmp : -timeCmp
-                return a.dataset.name.localeCompare(b.dataset.name)
-              }
-              if (aIsDir && !bIsDir) return -1
-              if (!aIsDir && bIsDir) return 1
-
-              const timeCmp = parseModTime(a.dataset.modtime) - parseModTime(b.dataset.modtime)
-              if (timeCmp !== 0) return sortAsc ? timeCmp : -timeCmp
-              const nameCmp = a.dataset.name.localeCompare(b.dataset.name)
-              return sortAsc ? nameCmp : -nameCmp
-            }
-
-            return 0
+        function collectImages() {
+          images = []
+          document.querySelectorAll('#fileTable tbody tr[data-kind="image"]').forEach(function (tr) {
+            var btn = tr.querySelector('.js-preview')
+            if (!btn) return
+            images.push({ href: btn.getAttribute('data-href'), name: btn.getAttribute('data-name') })
           })
         }
+        function renderLb() {
+          if (cur < 0 || cur >= images.length) return
+          var it = images[cur]
+          lbImg.src = it.href
+          lbName.textContent = it.name
+          lbPos.textContent = (cur + 1) + ' / ' + images.length
+          scale = 1
+          applyScale()
+        }
+        function applyScale() {
+          lbImg.classList.remove('zoomed')
+          lbImg.style.transform = scale === 1 ? '' : 'scale(' + scale + ')'
+          if (scale !== 1) {
+            lbImg.classList.add('zoomed')
+          }
+        }
+        function openImage(href, name, index) {
+          collectImages()
+          cur = index >= 0 ? index : images.findIndex(function (it) { return it.href === href })
+          if (cur < 0 && images.length) cur = 0
+          if (cur < 0) return
+          lightbox.classList.add('open')
+          document.body.style.overflow = 'hidden'
+          renderLb()
+        }
+        function closeLb() {
+          lightbox.classList.remove('open')
+          document.body.style.overflow = ''
+          lbImg.removeAttribute('src')
+        }
+        function step(delta) {
+          if (!images.length) return
+          cur = (cur + delta + images.length) % images.length
+          renderLb()
+        }
 
-        function render() {
-          const filterText = searchBox.value.trim().toLowerCase()
-          sortRows()
-          tableBody.innerHTML = ''
+        $('#lbClose').addEventListener('click', closeLb)
+        $('#lbPrev').addEventListener('click', function () { step(-1) })
+        $('#lbNext').addEventListener('click', function () { step(1) })
+        $('#lbZoomIn').addEventListener('click', function () {
+          scale = Math.min(8, scale * 1.25)
+          applyScale()
+        })
+        $('#lbZoomOut').addEventListener('click', function () {
+          scale = Math.max(0.2, scale / 1.25)
+          applyScale()
+        })
+        $('#lbFit').addEventListener('click', function () {
+          scale = 1
+          applyScale()
+        })
+        lbImg.addEventListener('wheel', function (e) {
+          e.preventDefault()
+          var d = e.deltaY < 0 ? 1.1 : 1 / 1.1
+          scale = Math.min(8, Math.max(0.2, scale * d))
+          applyScale()
+        }, { passive: false })
+        lightbox.addEventListener('click', function (e) {
+          if (e.target === lightbox) closeLb()
+        })
 
-          for (const row of rows) {
-            if (!filterText || row.dataset.name.toLowerCase().includes(filterText)) {
-              tableBody.appendChild(row)
+        /* ---------- 文本预览（highlight.js 高亮） ---------- */
+        var textModal = $('#textModal')
+        var tmTitle = $('#tmTitle')
+        var tmContent = $('#tmContent')
+        var tmCode = $('#tmCode')
+        var tmNote = $('#tmNote')
+
+        // 常见扩展名 -> highlight.js 语言标识（未知时交给 highlightAuto 自动检测）
+        var HL_EXT_LANG = {
+          c: 'c', h: 'c', cpp: 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp',
+          cs: 'csharp', go: 'go', java: 'java', js: 'javascript', mjs: 'javascript',
+          cjs: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
+          py: 'python', rb: 'ruby', rs: 'rust', php: 'php', swift: 'swift',
+          kt: 'kotlin', kts: 'kotlin', scala: 'scala', lua: 'lua', r: 'r',
+          sh: 'bash', bash: 'bash', zsh: 'bash', yaml: 'yaml', yml: 'yaml',
+          json: 'json', xml: 'xml', html: 'xml', htm: 'xml', css: 'css',
+          scss: 'scss', less: 'less', sql: 'sql', md: 'markdown',
+          markdown: 'markdown', ini: 'ini', cfg: 'ini', conf: 'ini',
+          toml: 'ini', dockerfile: 'dockerfile', diff: 'diff',
+          txt: 'plaintext', log: 'plaintext', csv: 'plaintext', tsv: 'plaintext'
+        }
+
+        // 超大预览不再高亮，仅纯文本展示，避免卡死浏览器
+        var HL_MAX_CHARS = 300000
+
+        function languageForName(name) {
+          if (!name) return null
+          var base = String(name).toLowerCase()
+          if (base === 'makefile') return 'makefile'
+          var dot = base.lastIndexOf('.')
+          if (dot < 0) return null
+          var ext = base.slice(dot + 1)
+          return HL_EXT_LANG[ext] || null
+        }
+
+        function renderCode(text, name) {
+          var lang = languageForName(name)
+          tmCode.className = 'hljs'
+          if (window.hljs && text.length <= HL_MAX_CHARS) {
+            try {
+              if (lang && hljs.getLanguage(lang)) {
+                tmCode.className = 'hljs language-' + lang
+                tmCode.textContent = text
+                hljs.highlightElement(tmCode)
+                return
+              }
+              // 未注册语言/无法推断 -> 自动检测
+              var res = hljs.highlightAuto(text)
+              if (res && res.value) {
+                tmCode.innerHTML = res.value
+                return
+              }
+            } catch (e) {
+              /* 高亮失败 -> 走纯文本兜底 */
             }
           }
-
-          arrowName.textContent = ''
-          arrowSize.textContent = ''
-          arrowModTime.textContent = ''
-          if (sortKey === 'name') arrowName.textContent = sortAsc ? '▲' : '▼'
-          if (sortKey === 'size') arrowSize.textContent = sortAsc ? '▲' : '▼'
-          if (sortKey === 'modtime') arrowModTime.textContent = sortAsc ? '▲' : '▼'
+          tmCode.textContent = text
         }
 
-        headers.forEach(header => {
-          header.addEventListener('click', () => {
-            const key = header.dataset.key
-            if (key === sortKey) {
-              sortAsc = !sortAsc
-            } else {
-              sortKey = key
-              sortAsc = true
-            }
-            render()
-          })
+        function openText(btn) {
+          var href = btn.getAttribute('data-href')
+          var name = btn.getAttribute('data-name')
+          tmTitle.textContent = name
+          tmNote.hidden = true
+          tmCode.textContent = '加载中…'
+          textModal.classList.add('open')
+          document.body.style.overflow = 'hidden'
+
+          fetch(href)
+            .then(function (resp) {
+              var truncated = resp.headers.get('X-Content-Truncated') === '1'
+              if (truncated) tmNote.hidden = false
+              return resp.text()
+            })
+            .then(function (text) {
+              renderCode(text, name)
+            })
+            .catch(function (err) {
+              tmCode.textContent = '加载失败: ' + err.message
+            })
+        }
+        function closeText() {
+          textModal.classList.remove('open')
+          document.body.style.overflow = ''
+          tmCode.textContent = ''
+          tmCode.className = 'hljs'
+        }
+        $('#tmClose').addEventListener('click', closeText)
+        textModal.addEventListener('click', function (e) {
+          if (e.target === textModal) closeText()
         })
 
-        searchBox.addEventListener('input', render)
-
-        window.previewFile = function (href, type) {
-          const previewUrl = href + '?preview=1'
-          modal.style.display = 'block'
-          modalHeader.textContent = '文件预览: ' + href.split('/').pop()
-
-          if (type === 'image') {
-            modalContent.innerHTML = `<img class="modal-content" src="${previewUrl}" alt="预览">`
-          } else if (type === 'text') {
-            fetch(previewUrl)
-              .then(response => response.text())
-              .then(text => {
-                modalContent.innerHTML = `<pre class="modal-text">${escapeHtml(text)}</pre>`
-              })
-              .catch(error => {
-                modalContent.innerHTML = `<div class="modal-text">加载失败: ${error.message}</div>`
-              })
-          }
-        }
-
-        window.downloadFile = function (href) {
-          window.location.href = href + '?download=1'
-        }
-
-        window.closeModal = function () {
-          modal.style.display = 'none'
-          modalContent.innerHTML = ''
-        }
-
-        function escapeHtml(text) {
-          const div = document.createElement('div')
-          div.textContent = text
-          return div.innerHTML
-        }
-
-        modal.addEventListener('click', e => {
-          if (e.target === modal) {
-            closeModal()
+        /* ---------- 事件委托：预览按钮 ---------- */
+        document.addEventListener('click', function (e) {
+          var btn = e.target.closest('.js-preview')
+          if (!btn) return
+          e.preventDefault()
+          var kind = btn.getAttribute('data-kind')
+          if (kind === 'image') {
+            openImage(btn.getAttribute('data-href'), btn.getAttribute('data-name'))
+          } else {
+            openText(btn)
           }
         })
 
-        document.addEventListener('keydown', e => {
-          if (e.key === 'Escape' && modal.style.display === 'block') {
-            closeModal()
+        /* ---------- 键盘 ---------- */
+        document.addEventListener('keydown', function (e) {
+          if (lightbox.classList.contains('open')) {
+            if (e.key === 'Escape') closeLb()
+            else if (e.key === 'ArrowLeft') step(-1)
+            else if (e.key === 'ArrowRight') step(1)
+          } else if (textModal.classList.contains('open') && e.key === 'Escape') {
+            closeText()
           }
         })
 
-        updateBreadcrumb()
-        render()
+        /* 下载目录按钮交给普通链接即可；ZIP 链接同理 */
       })()
     </script>
   </body>
