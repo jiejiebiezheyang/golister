@@ -362,6 +362,12 @@
         color: var(--accent);
         font-weight: 600;
       }
+      tbody tr.clickable-row {
+        cursor: pointer;
+      }
+      tbody tr.clickable-row:hover td {
+        background: var(--row-hover);
+      }
 
       /* 分页 */
       .pager {
@@ -601,10 +607,11 @@
             type="search"
             name="q"
             value="{{.Q}}"
-            placeholder="搜索文件名（服务端过滤）…"
+            placeholder="搜索文件名…"
             aria-label="搜索文件名"
             autocomplete="off"
           />
+          <button class="btn" type="submit">搜索</button>
         </form>
         <div class="stats">
           <span>{{.TotalLabel}}</span>
@@ -634,14 +641,13 @@
             </tr>
           </thead>
           <tbody>
-            {{if .ShowParent}}
-            <tr class="up-row" data-kind="parent">
+            {{if .ShowParent}}<tr class="up-row clickable-row" data-kind="parent" data-href="{{.ParentHref}}">
               <td>
                 <span class="fname">
                   <svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
                   </svg>
-                  <a href="{{.ParentHref}}">..</a>
+                  <a href="{{.ParentHref}}" title="返回上级目录">..</a>
                 </span>
               </td>
               <td class="mtime hide-sm">-</td>
@@ -649,8 +655,7 @@
               <td class="actions"></td>
             </tr>
             {{end}}
-            {{range .Files}}
-            <tr data-kind="{{.Kind}}" data-name="{{.Name}}">
+            {{range .Files}}<tr class="clickable-row" data-kind="{{.Kind}}" data-name="{{.Name}}" data-href="{{.Href}}"{{if and (not .IsDir) .CanPreview}} data-preview="1" data-preview-href="{{.PreviewHref}}"{{end}}>
               <td>
                 <span class="fname">
                   <!-- 按分类渲染图标，仅模板内含 SVG，Go 不输出 HTML -->
@@ -671,6 +676,16 @@
                   </svg>
                   {{if .IsDir}}
                   <a href="{{.Href}}" title="打开目录">{{.Name}}</a>
+                  {{else if .CanPreview}}
+                  <a
+                    class="js-preview"
+                    href="{{.PreviewHref}}"
+                    title="预览 {{.Name}}"
+                    data-kind="{{.Kind}}"
+                    data-name="{{.Name}}"
+                    data-href="{{.PreviewHref}}"
+                    >{{.Name}}</a
+                  >
                   {{else}}
                   <a href="{{.Href}}" title="下载 {{.Name}}">{{.Name}}</a>
                   {{end}}
@@ -761,7 +776,7 @@
           <button class="icon-btn" id="tmClose" type="button" aria-label="关闭" style="color: var(--muted)">✕</button>
         </div>
         <div id="tmWrap">
-          <pre id="tmContent"><code class="hljs" id="tmCode"></code></pre>
+          <pre id="tmContent"></pre>
         </div>
         <div class="trunc-note" id="tmNote" hidden>⚠ 文件过大，预览已截断，请下载查看完整内容。</div>
       </div>
@@ -793,19 +808,10 @@
           syncThemeIcon()
         })
 
-        /* ---------- 搜索：防抖自动提交，重置到第一页 ---------- */
+        /* ---------- 搜索：回车/点击按钮提交，重置到第一页 ---------- */
         var searchForm = $('#searchForm')
-        var searchInput = $('.search-input')
-        var timer = null
         searchForm.addEventListener('submit', function () {
           searchForm.querySelector('input[name="page"]').value = '1'
-        })
-        searchInput.addEventListener('input', function () {
-          clearTimeout(timer)
-          timer = setTimeout(function () {
-            searchForm.querySelector('input[name="page"]').value = '1'
-            searchForm.submit()
-          }, 350)
         })
 
         /* ---------- 图片灯箱 ---------- */
@@ -890,22 +896,60 @@
         var textModal = $('#textModal')
         var tmTitle = $('#tmTitle')
         var tmContent = $('#tmContent')
-        var tmCode = $('#tmCode')
         var tmNote = $('#tmNote')
 
-        // 常见扩展名 -> highlight.js 语言标识（未知时交给 highlightAuto 自动检测）
+        var HLJS_CDN = 'https://cdn.bootcdn.net/ajax/libs/highlight.js/11.11.1/'
+        var hlLoading = {} // lang -> Promise，缓存避免重复加载
+
+        // 扩展名 -> highlight.js 语言名（注册名与 CDN languages/*.min.js 文件名一致）
         var HL_EXT_LANG = {
-          c: 'c', h: 'c', cpp: 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp',
-          cs: 'csharp', go: 'go', java: 'java', js: 'javascript', mjs: 'javascript',
-          cjs: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
-          py: 'python', rb: 'ruby', rs: 'rust', php: 'php', swift: 'swift',
-          kt: 'kotlin', kts: 'kotlin', scala: 'scala', lua: 'lua', r: 'r',
-          sh: 'bash', bash: 'bash', zsh: 'bash', yaml: 'yaml', yml: 'yaml',
-          json: 'json', xml: 'xml', html: 'xml', htm: 'xml', css: 'css',
-          scss: 'scss', less: 'less', sql: 'sql', md: 'markdown',
-          markdown: 'markdown', ini: 'ini', cfg: 'ini', conf: 'ini',
-          toml: 'ini', dockerfile: 'dockerfile', diff: 'diff',
-          txt: 'plaintext', log: 'plaintext', csv: 'plaintext', tsv: 'plaintext'
+          // C 家族
+          c: 'c', h: 'c', cpp: 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp', hh: 'cpp',
+          cs: 'csharp', m: 'objectivec', mm: 'objectivec',
+          // Go / Rust / Java / Kotlin / Scala
+          go: 'go', rs: 'rust', java: 'java', kt: 'kotlin', kts: 'kotlin',
+          scala: 'scala', sc: 'scala',
+          // 脚本
+          js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript',
+          ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript',
+          py: 'python', pyw: 'python', rb: 'ruby', php: 'php', php4: 'php',
+          php5: 'php', phtml: 'php', perl: 'perl', pl: 'perl', pm: 'perl',
+          lua: 'lua', r: 'r', dart: 'dart', groovy: 'groovy', gradle: 'groovy',
+          julia: 'julia', sh: 'bash', bash: 'bash', zsh: 'bash', ksh: 'bash',
+          ps1: 'powershell', psm1: 'powershell', bat: 'dos', cmd: 'dos',
+          coffee: 'coffeescript', vb: 'vbscript', vbs: 'vbscript', awk: 'awk',
+          tcl: 'tcl', ahk: 'autohotkey', lisp: 'lisp', cl: 'lisp', el: 'lisp',
+          scm: 'scheme', ss: 'scheme', clj: 'clojure', cljs: 'clojure',
+          cljc: 'clojure', erl: 'erlang', hrl: 'erlang', ex: 'elixir',
+          exs: 'elixir', hs: 'haskell', lhs: 'haskell', fs: 'fsharp',
+          fsx: 'fsharp', fsi: 'fsharp', fsscript: 'fsharp', ocaml: 'ocaml',
+          ml: 'ocaml', mli: 'ocaml', nim: 'nim', crystal: 'crystal',
+          elm: 'elm', haxe: 'haxe', hx: 'haxe', vala: 'vala', vim: 'vim',
+          // 标记 / 数据
+          json: 'json', xml: 'xml', html: 'xml', htm: 'xml', xhtml: 'xml',
+          xsl: 'xml', xslt: 'xml', svg: 'xml', yaml: 'yaml', yml: 'yaml',
+          css: 'css', scss: 'scss', less: 'less', styl: 'stylus',
+          md: 'markdown', markdown: 'markdown', rst: 'markdown',
+          ini: 'ini', cfg: 'ini', conf: 'ini', properties: 'ini',
+          env: 'ini', editorconfig: 'ini', toml: 'ini',
+          sql: 'sql', graphql: 'graphql', gql: 'graphql',
+          proto: 'protobuf', diff: 'diff', patch: 'diff',
+          // 构建 / 服务
+          makefile: 'makefile', dockerfile: 'dockerfile', cmake: 'cmake',
+          nginx: 'nginx', apache: 'apache', htaccess: 'apache',
+          tex: 'tex', latex: 'tex', bib: 'tex', http: 'http',
+          d: 'd', ada: 'ada', v: 'verilog', vhd: 'vhdl', vhdl: 'vhdl',
+          // 纯文本类：不试图高亮
+          txt: 'plaintext', log: 'plaintext', text: 'plaintext',
+          csv: 'plaintext', tsv: 'plaintext', jsonl: 'plaintext'
+        }
+        // 无扩展名/特殊文件的名称映射（键：小写文件名）
+        var HL_NAME_LANG = {
+          makefile: 'makefile', dockerfile: 'dockerfile',
+          'cmakelists.txt': 'cmake', rakefile: 'ruby',
+          gemfile: 'ruby', podfile: 'ruby', vagrantfile: 'ruby',
+          procfile: 'bash', '.gitignore': 'ini', '.env': 'ini',
+          '.editorconfig': 'ini', '.gitattributes': 'ini', '.gitconfig': 'ini'
         }
 
         // 超大预览不再高亮，仅纯文本展示，避免卡死浏览器
@@ -914,43 +958,98 @@
         function languageForName(name) {
           if (!name) return null
           var base = String(name).toLowerCase()
-          if (base === 'makefile') return 'makefile'
+          if (HL_NAME_LANG[base]) return HL_NAME_LANG[base]
           var dot = base.lastIndexOf('.')
           if (dot < 0) return null
           var ext = base.slice(dot + 1)
           return HL_EXT_LANG[ext] || null
         }
 
-        function renderCode(text, name) {
-          var lang = languageForName(name)
-          tmCode.className = 'hljs'
-          if (window.hljs && text.length <= HL_MAX_CHARS) {
-            try {
-              if (lang && hljs.getLanguage(lang)) {
-                tmCode.className = 'hljs language-' + lang
-                tmCode.textContent = text
-                hljs.highlightElement(tmCode)
-                return
+        // 确保某语言已注册；未注册则动态从 CDN 加载语言模块
+        function ensureHlLang(lang) {
+          if (window.hljs && hljs.getLanguage(lang)) return Promise.resolve(true)
+          if (!lang) return Promise.resolve(false)
+          if (!hlLoading[lang]) {
+            hlLoading[lang] = new Promise(function (resolve) {
+              var s = document.createElement('script')
+              s.src = HLJS_CDN + 'languages/' + lang + '.min.js'
+              s.async = true
+              s.onload = function () {
+                resolve(!!(window.hljs && hljs.getLanguage(lang)))
               }
-              // 未注册语言/无法推断 -> 自动检测
-              var res = hljs.highlightAuto(text)
-              if (res && res.value) {
-                tmCode.innerHTML = res.value
-                return
+              s.onerror = function () {
+                resolve(false)
               }
-            } catch (e) {
-              /* 高亮失败 -> 走纯文本兜底 */
-            }
+              document.head.appendChild(s)
+            })
           }
-          tmCode.textContent = text
+          return hlLoading[lang]
         }
 
-        function openText(btn) {
-          var href = btn.getAttribute('data-href')
-          var name = btn.getAttribute('data-name')
+        // 用指定语言高亮；失败返回 false 交给兜底
+        function highlightWith(code, lang, text) {
+          try {
+            if (lang && window.hljs && hljs.getLanguage(lang)) {
+              code.className = 'hljs language-' + lang
+              code.textContent = text
+              hljs.highlightElement(code)
+              return true
+            }
+          } catch (e) { /* fall through */ }
+          return false
+        }
+
+        // 自动检测；不行就纯文本
+        function renderFallback(code, text) {
+          if (window.hljs && text.length <= HL_MAX_CHARS) {
+            try {
+              var res = hljs.highlightAuto(text)
+              if (res && res.value) {
+                code.className = 'hljs'
+                code.innerHTML = res.value
+                return
+              }
+            } catch (e) { /* fall through */ }
+          }
+          code.textContent = text
+        }
+
+        // 每次预览创建全新的 <code>，避免 hljs 的 data-highlighted 状态残留在旧元素上
+        // 导致第二次预览不高亮；语言缺失时动态加载对应 CDN 模块
+        function renderCode(text, name) {
+          var lang = languageForName(name)
+          var code = document.createElement('code')
+          code.className = 'hljs'
+
+          // 1) 明确语言且已注册：直接高亮
+          if (highlightWith(code, lang, text)) {
+            tmContent.replaceChildren(code)
+            return
+          }
+          // 2) 有语言但未注册：动态加载该语言模块后再高亮
+          if (lang && window.hljs && text.length <= HL_MAX_CHARS) {
+            code.textContent = text // 先显示原文占位
+            tmContent.replaceChildren(code)
+            ensureHlLang(lang).then(function () {
+              // 加载期间用户可能已关闭/切换，code 已脱离文档则放弃
+              if (!tmContent.contains(code)) return
+              if (!highlightWith(code, lang, text)) {
+                // 语言模块加载失败或仍不可用 -> 自动检测兜底
+                code.innerHTML = ''
+                renderFallback(code, text)
+              }
+            })
+            return
+          }
+          // 3) 无语言映射 / hljs 未加载：自动检测或纯文本
+          renderFallback(code, text)
+          tmContent.replaceChildren(code)
+        }
+
+        function openText(href, name) {
           tmTitle.textContent = name
           tmNote.hidden = true
-          tmCode.textContent = '加载中…'
+          tmContent.textContent = '加载中…'
           textModal.classList.add('open')
           document.body.style.overflow = 'hidden'
 
@@ -964,31 +1063,67 @@
               renderCode(text, name)
             })
             .catch(function (err) {
-              tmCode.textContent = '加载失败: ' + err.message
+              tmContent.textContent = '加载失败: ' + err.message
             })
         }
         function closeText() {
           textModal.classList.remove('open')
           document.body.style.overflow = ''
-          tmCode.textContent = ''
-          tmCode.className = 'hljs'
+          tmContent.replaceChildren()
         }
         $('#tmClose').addEventListener('click', closeText)
         textModal.addEventListener('click', function (e) {
           if (e.target === textModal) closeText()
         })
 
-        /* ---------- 事件委托：预览按钮 ---------- */
+        // 打开预览：按 kind 分发到图片灯箱或文本弹层
+        function previewFrom(kind, href, name) {
+          if (kind === 'image') openImage(href, name)
+          else openText(href, name)
+        }
+
+        /* ---------- 事件委托：整行点击（目录进入 / 文件预览优先 / 其余下载） ---------- */
+        document.addEventListener('click', function (e) {
+          if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
+          var row = e.target.closest('tr.clickable-row')
+          if (!row) return
+          // 点击的是行内控件/链接（如 ZIP、下载、名称链接、预览按钮）时，交给它们各自处理
+          if (e.target.closest('a, button')) return
+
+          var kind = row.getAttribute('data-kind')
+          var href = row.getAttribute('data-href')
+          if (!href) return
+
+          // 返回上级行
+          if (kind === 'parent') {
+            window.location.href = href
+            return
+          }
+          // 目录行：进入目录
+          if (kind === 'dir') {
+            window.location.href = href
+            return
+          }
+          // 文件行：有预览能力优先预览
+          if (row.getAttribute('data-preview') === '1') {
+            e.preventDefault()
+            previewFrom(kind, row.getAttribute('data-preview-href'), row.getAttribute('data-name'))
+            return
+          }
+          // 无预览的文件：整行点击 = 下载
+          window.location.href = href
+        })
+
+        /* ---------- 事件委托：预览按钮/名称链接 ---------- */
         document.addEventListener('click', function (e) {
           var btn = e.target.closest('.js-preview')
           if (!btn) return
           e.preventDefault()
-          var kind = btn.getAttribute('data-kind')
-          if (kind === 'image') {
-            openImage(btn.getAttribute('data-href'), btn.getAttribute('data-name'))
-          } else {
-            openText(btn)
-          }
+          previewFrom(
+            btn.getAttribute('data-kind'),
+            btn.getAttribute('data-href'),
+            btn.getAttribute('data-name')
+          )
         })
 
         /* ---------- 键盘 ---------- */
